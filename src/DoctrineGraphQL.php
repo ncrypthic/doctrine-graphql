@@ -234,7 +234,7 @@ class DoctrineGraphQL
                         'limit'  => Type::int(),
                         'filter' => $this->outputTypes[$name."Search"],
                         'match'  => $this->outputTypes[$name."Search"],
-                        'sort'  => $this->outputTypes[$name."Sort"],
+                        'sort'   => $this->outputTypes[$name."Sort"],
                         'items'  => ['type' => Type::listOf($this->outputTypes[$name])],
                     ]
                 ];
@@ -479,6 +479,7 @@ class DoctrineGraphQL
                     $total  = 0;
                     $filter = [];
                     $match  = [];
+                    $sort   = [];
                     /* @var \Doctrine\ORM\EntityRepository $repo */
                     /* @var \Doctrine\ORM\QueryBuilder $qb */
                     $repo    = $em->getRepository($cm->name);
@@ -556,7 +557,7 @@ class DoctrineGraphQL
                     }
                     if(isset($args['sort'])) {
                         foreach($args['sort'] as $fieldName=>$direction) {
-                            $qb->orderBy($fieldName, $direction);
+                            $qb->orderBy("e.".$fieldName, $direction);
                         }
                     }
                     $page = $args['page'] > 0 ? $args['page'] - 1: 0;
@@ -576,7 +577,7 @@ class DoctrineGraphQL
                         'limit'  => $args['limit'],
                         'filter' => $filter,
                         'match'  => $match,
-                        'sort'   => $args['sort'],
+                        'sort'   => $sort,
                         'items'  => $qb->setMaxResults($args['limit'])->setFirstResult($page * $args['limit'])->getQuery()->getResult()
                     ];
                 },
