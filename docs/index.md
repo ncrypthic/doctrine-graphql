@@ -6,7 +6,7 @@
 
 This library provides a [DoctrineGraphQL](https://github.com/ncrypthic/doctrine-graphql/blob/master/src/DoctrineGraphQL.php) builder class to build all Doctrine entities as GraphQL types by following a [naming convention](types.md#naming-conventions).
 
-For every GraphQL type it will create basic CRUD query and mutations. For the mapping to works, this library made some assumptions:
+For every entity class mapped to GraphQL object type it will create basic GraphQL Query and Mutations.
 
 ## Installation
 
@@ -48,6 +48,3 @@ See [Queries](queries.md)
 ## Mutations
 
 See [Mutations](mutations.md)
-
-## License
-MIT
