@@ -42,20 +42,23 @@ class SchemaUtil
         case 'integer':
             $res = self::mkGraphqlType(Type::int(), $isNullable);
             return Maybe::Some($res);
-        case 'string':
-            $res = self::mkGraphqlType(Type::string(), $isNullable);
-            return Maybe::Some($res);
-        case 'date':
-            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
-            return Maybe::Some($res);
-        case 'datetime':
-            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
-            return Maybe::Some($res);
         case 'bigint':
             $res = self::mkGraphqlType(Type::int(), $isNullable);
             return Maybe::Some($res);
         case 'smallint':
             $res = self::mkGraphqlType(Type::int(), $isNullable);
+            return Maybe::Some($res);
+        case 'uuid':
+            $res = self::mkGraphqlType(Type::string(), $isNullable);
+            return Maybe::Some($res);
+        case 'string':
+            $res = self::mkGraphqlType(Type::string(), $isNullable);
+            return Maybe::Some($res);
+        case 'text':
+            $res = self::mkGraphqlType(Type::string(), $isNullable);
+            return Maybe::Some($res);
+        case 'date':
+            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
             return Maybe::Some($res);
         case 'decimal':
             $res = self::mkGraphqlType(Type::float(), $isNullable);
@@ -63,11 +66,20 @@ class SchemaUtil
         case 'float':
             $res = self::mkGraphqlType(Type::float(), $isNullable);
             return Maybe::Some($res);
-        case 'uuid':
-            $res = self::mkGraphqlType(Type::string(), $isNullable);
-            return Maybe::Some($res);
         case 'boolean':
             $res = self::mkGraphqlType(Type::boolean(), $isNullable);
+            return Maybe::Some($res);
+        case 'time':
+            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
+            return Maybe::Some($res);
+        case 'date':
+            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
+            return Maybe::Some($res);
+        case 'datetime':
+            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
+            return Maybe::Some($res);
+        case 'datetimetz':
+            $res = self::mkGraphqlType(BuiltInTypes::dateTime(), $isNullable);
             return Maybe::Some($res);
         default:
             return Maybe::None();
