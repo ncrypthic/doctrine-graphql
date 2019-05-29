@@ -43,18 +43,20 @@ $res = is_array($req)
 
 ## Queries
 
-| Query name | Arguments | ReturnType | Description |
-| ---------- | --------- | ---------- | ----------- |
-| get`<Type>` | List of `Entity`'s `@ID` fields that was mapped to `Type` | `<Type>` | Get a single object of `entity` by `<identity>` field |
-| get`<Type>`Page | page: Int!, limit: Int!, filter: [], match: [], sort: [] | `<Type>`Page | Get paginated data of `Entity` that was mapped to `Type` |
+For every Doctrine entity, DoctrineGraphQL will generate 2 graphql queries:
+
+1. To get a single entity record `get<GraphQLTypeName>`
+2. To get paginated list of entity records `get<GraphQLTypeName>Page`
+
+See more detail on [Queries](queries.md) section.
 
 ## Mutations
 
-| Mutation name | Arguments | Return Type | Description |
-| ------------- | --------- | ----------- | ----------- |
-| create`<Type>` | input: `Entity`Input | `Type` | Creates new `Entity` data mapped to `Type` |
-| update`<Type>` | input: `Entity`Input | `Type` | Update an `Entity` data mapped to `Type`. All identity fields on `input` arguments is used to match the data, other args will be used as update values |
-| delete`<Type>` | List of `Entity`'s `@ID` fields | `Type` | Delete an `Entity` mapped as `Type` which match all the arguments and return deleted entity data |
+For every Doctrine entity, DoctrineGraphQL will generate 3 graphql mutations:
 
-## License
-MIT
+1. To insert a single entity record `create<GraphQLTypeName>`
+2. To update a single entity record `update<GraphQLTypeName>`
+3. To delete a single entity record `delete<GraphQLTypeName>`
+
+See more detail on [Mutations](mutations.md) section.
+
