@@ -1,7 +1,7 @@
 site_name: doctrine-graphql
 pages:
-    - Getting Started: docs/getting_started.md
-    - Types: docs/types.md
-    - Queries: docs/queries.md
-    - Mutations: docs/mutations.md
+    - Getting Started: getting_started.md
+    - Types: types.md
+    - Queries: queries.md
+    - Mutations: mutations.md
 theme: readthedocs
