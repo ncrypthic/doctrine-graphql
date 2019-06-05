@@ -206,21 +206,24 @@ class DoctrineGraphQL
             $sortInputType = ['name' => $name."SortInput", 'fields' => []];
             foreach($cm->getFieldNames() as $fieldName) {
                 $fieldDef = $cm->getFieldMapping($fieldName);
-                $fieldType = SchemaUtil::mapTypeToGraphqlType($fieldDef['type'], $fieldDef['nullable'], false)->value();
-                $type['fields'][$fieldName] = ['type' => $fieldType, 'resolve' => function($data, $args, $context, ResolveInfo $resolveInfo) use($cm, $fieldName, $fieldDef, $name) {
-                    if($data instanceof Collection) {
-                        return array_map(function($elmt) use($resolveInfo){
-                            return call_user_func([$elmt, 'get'.ucfirst($resolveInfo->fieldName)]);
-                        }, $data->toArray());
-                    } else {
-                        return call_user_func([$data, 'get'.ucfirst($resolveInfo->fieldName)]);
-                    }
-                }];
-                $searchType['fields'][$fieldName] = ['type' => Type::listOf(BuiltInTypes::searchFilter())];
-                $sortType['fields'][$fieldName] = ['type' => BuiltInTypes::sortingOrientation()];
-                $inputType['fields'][$fieldName] = ['type' => $fieldType];
-                $searchInputType['fields'][$fieldName] = ['type' => Type::listOf(BuiltInTypes::searchFilterInput())];
-                $sortInputType['fields'][$fieldName] = ['type' => BuiltInTypes::sortingOrientation()];
+                $maybeType = SchemaUtil::mapTypeToGraphqlType($fieldDef['type'], $fieldDef['nullable'], false);
+                if (!$maybeType->isEmpty()) {
+                    $fieldType = $maybeType->value();
+                    $type['fields'][$fieldName] = ['type' => $fieldType, 'resolve' => function($data, $args, $context, ResolveInfo $resolveInfo) use($cm, $fieldName, $fieldDef, $name) {
+                        if($data instanceof Collection) {
+                            return array_map(function($elmt) use($resolveInfo){
+                                return call_user_func([$elmt, 'get'.ucfirst($resolveInfo->fieldName)]);
+                            }, $data->toArray());
+                        } else {
+                            return call_user_func([$data, 'get'.ucfirst($resolveInfo->fieldName)]);
+                        }
+                    }];
+                    $searchType['fields'][$fieldName] = ['type' => Type::listOf(BuiltInTypes::searchFilter())];
+                    $sortType['fields'][$fieldName] = ['type' => BuiltInTypes::sortingOrientation()];
+                    $inputType['fields'][$fieldName] = ['type' => $fieldType];
+                    $searchInputType['fields'][$fieldName] = ['type' => Type::listOf(BuiltInTypes::searchFilterInput())];
+                    $sortInputType['fields'][$fieldName] = ['type' => BuiltInTypes::sortingOrientation()];
+                }
             }
             if(count($type['fields']) > 0) {
                 $this->addOutputType($name, $type);
