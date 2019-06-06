@@ -1,5 +1,6 @@
 # doctrine-graphql
 [![Documentation Status](https://readthedocs.org/projects/doctrine-graphql/badge/?version=latest)](https://doctrine-graphql.readthedocs.io/en/latest/?badge=latest)
+[![Build Status](https://travis-ci.com/ncrypthic/doctrine-graphql.svg?branch=master)](https://travis-ci.com/ncrypthic/doctrine-graphql)
 
 [Doctrine ORM](https://www.doctrine-project.org/projects/doctrine-orm/en/2.6/) to [PHP GraphQL](https://webonyx.github.io/graphql-php/) bridge. 
 
