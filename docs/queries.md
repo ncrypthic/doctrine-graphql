@@ -6,7 +6,9 @@ In [Types](types.md) section, we already know how DoctrineGraphQL will automatic
 
 The first query, is to get a single entity data. The query name followed the [naming convention] prefixed with `get`.
 
-For example, supposed we have an entity like below:
+For example, supposed we have an entities like below:
+
+1. `User` Entity:
 
 ```php
 <?php
@@ -29,6 +31,38 @@ class User
      * @ORM\Id
      */
     private $username;
+    /**
+     * @ORM\OneToMany(targetEntity="Vendor\Package\Entity\Post")
+     * @ORM\JoinColumn(name="id", referencedColumnName="author_id")
+     */
+    private $posts;
+    // ... rest of the code
+}
+```
+
+2. `Post` entity
+
+```php
+<?php
+namespace Vendor\Package\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+
+/**
+ * @ORM\Entity
+ */
+class Post
+{
+    /**
+     * @ORM\Column(type="string")
+     * @ORM\Id
+     */
+    private $postId;
+    /**
+     * @ORM\ManyToOne(targetEntity="Vendor\Package\Entity\User")
+     * @ORM\JoinColumn(name="author_id", referencedColumnName="id", nullable=false)
+     */
+    private $author;
     // ... rest of the code
 }
 ```
@@ -38,6 +72,7 @@ The query will need to have at least 1 argument, depending on how many scalar pr
 ```
 type Query {
   getVendorPackageEntityUser(userId: String!): VendorPackageEntityUser
+  getVendorPackageEntityPost(postId: String!): VendorPackageEntityPost
 }
 ```
 
@@ -54,6 +89,13 @@ type Query {
     match: VendorPackageEntityUserSearchInput,
     sort: VendorPackageEntityUserSort
   ): VendorPackageEntityUserPage
+  getVendorPackageEntityPost(
+    page: Int!,
+    limit: Int!,
+    filter: VendorPackageEntityPostSearchInput,
+    match: VendorPackageEntityPostSearchInput,
+    sort: VendorPackageEntityPostSort
+  ): VendorPackageEntityPostPage
 }
 ```
 
@@ -110,11 +152,23 @@ input SearchFilterInput {
 input VendorPackageEntityUserSearchInput {
   id: [SearchFilterInput]
   username: [SearchFilterInput]
+  posts: VendorPackageEntityPostSearchInput
 }
 
 input VendorPackageEntityUserSortInput {
   id: SortingOrientation!
   username: SortingOrientation!
+}
+
+input VendorPackageEntityPostSearchInput {
+  id: [SearchFilterInput]
+  title: [SearchFilterInput]
+  author: VendorPackageEntityUserSearchInput
+}
+
+input VendorPackageEntityPostSortInput {
+  id: SortingOrientation!
+  title: SortingOrientation!
 }
 
 type Query {
@@ -125,5 +179,12 @@ type Query {
     match: VendorPackageEntityUserSearchInput,
     sort: VendorPackageEntityUserSortInput
   ): VendorPackageEntityUserPage
+  getVendorPackageEntityPostPage(
+    page: Int!,
+    limit: Int!,
+    filter: VendorPackageEntityPostSearchInput,
+    match: VendorPackageEntityPostSearchInput,
+    sort: VendorPackageEntityPostSortInput
+  ): VendorPackageEntityPostPage
 }
 ```

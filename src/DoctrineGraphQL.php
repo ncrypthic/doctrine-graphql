@@ -13,6 +13,7 @@ use GraphQL\Type\Definition\ResolveInfo;
 use GraphQL\Type\Definition\Type;
 use LLA\DoctrineGraphQL\Type\BuiltInTypes;
 use LLA\DoctrineGraphQL\Util\Maybe;
+use LLA\DoctrineGraphQL\Util\QueryUtil;
 use LLA\DoctrineGraphQL\Util\SchemaUtil;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
@@ -270,6 +271,7 @@ class DoctrineGraphQL
 
         $cmf = $em->getMetadataFactory();
         $modifiedTypes = [];
+        $modifiedSearchTypes = [];
         foreach($cmf->getAllMetadata() as $cm) {
             $name = SchemaUtil::mkObjectName($cm->name);
             $maybeType = $this->getOutputType($name);
@@ -278,6 +280,8 @@ class DoctrineGraphQL
             }
             $type = $maybeType->value()->config;
             $fields = $type['fields'];
+            $searchInputType = $this->getInputType($name."SearchInput")->value()->config;
+            $searchFields = $searchInputType['fields'];
             foreach($cm->getAssociationMappings() as $fieldDef) {
                 $fieldName  = $fieldDef['fieldName'];
                 $typeName   = SchemaUtil::mkObjectName($fieldDef['targetEntity']);
@@ -309,8 +313,19 @@ class DoctrineGraphQL
                         }
                     }
                 ];
+                $fieldSearchType = $this->getInputType($typeName."SearchInput")->value();
+                $searchFields[$fieldName] = [
+                    'type' => $fieldSearchType,
+                    'description' => '',
+                    'resolve' => function($rootValue, $ctx, $args, ResolveInfo $resolveInfo) {
+                        if($ctx['queryBuilder']) {
+                            $qb = $ctx['queryBuilder'];
+                        }
+                    }
+                ];
             }
             $this->outputTypes[$name] = $modifiedTypes[$name] = new ObjectType(['name' => $name, 'fields' => $fields]);
+            $this->inputTypes[$name."SearchInput"] = $modifiedSearchTypes[$name."SearchInput"] = new InputObjectType(['name' => $name."SearchInput", 'fields' => $searchFields]);
         }
 
         $this->logger->debug('Registering Modified Types');
@@ -324,6 +339,19 @@ class DoctrineGraphQL
                     if($existingTypeFieldDef['type'] instanceof ListOfType && $existingTypeFieldDef['type']->getWrappedType()->name === $type->name) {
                         $existingTypeFieldDef['type'] = Type::listOf($type);
                     } else if($existingTypeFieldDef['type']->name === $type->name){
+                        $existingTypeFieldDef['type'] = $type;
+                    }
+                }
+            }
+            $this->outputTypes[$typeName] = $type;
+        }
+        foreach($modifiedSearchTypes as $typeName => $type) {
+            foreach($this->inputTypes as $existingName=>&$existingType) {
+                foreach($existingType->config['fields'] as &$existingTypeFieldDef) {
+                    if(!is_array($existingTypeFieldDef) ) {
+                        continue;
+                    }
+                    if($existingTypeFieldDef['type']->name === $type->name){
                         $existingTypeFieldDef['type'] = $type;
                     }
                 }
@@ -490,7 +518,7 @@ class DoctrineGraphQL
                 "get".$name."Page",
                 $this->getType($name."Page")->value(),
                 $pageArgs,
-                function($rootValue, $args, $ctx, ResolveInfo $resolveInfo) use($em, $cm, $logger){
+                function($rootValue, $args, $ctx, ResolveInfo $resolveInfo) use($em, $cm, $pageArgs, $logger){
                     $selectedFields = $resolveInfo->getFieldSelection();
                     $total  = 0;
                     $filter = [];
@@ -506,70 +534,40 @@ class DoctrineGraphQL
                     }, ARRAY_FILTER_USE_KEY);
                     $parameters = ['filter' => [], 'match' => []];
                     if(isset($args['filter'])) {
-                        $filter = $args['filter'];
-                        $filterExprs = [];
-                        foreach($args['filter'] as $fieldName=>$predicates) {
-                            foreach($predicates as $predicate) {
-                                $expr = $qb->expr();
-                                $paramName = ":$fieldName";
-                                $parameters['filter'][$fieldName] = $predicate['value'];
-                                switch($predicate['operator']) {
-                                case BuiltInTypes::FILTER_OP_LESS_THAN:
-                                    $filterExprs[] = $expr->lt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
-                                    $filterExprs[] = $expr->lte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_EQUAL:
-                                    $filterExprs[] = $expr->eq("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN:
-                                    $filterExprs[] = $expr->gt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
-                                    $filterExprs[] = $expr->gte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_NOT_EQUAL:
-                                    $filterExprs[] = $expr->neq("e.".$fieldName, $paramName);
-                                    break;
-                                }
+                        QueryUtil::walkFilters($qb, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qb) {
+                            if(count($exprs) > 0) {
+                                $qb->where($qb->expr()->andX(...$exprs));
                             }
-                        }
-                        $qb->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
-                        $qbTotal->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
+                            if(count($params) > 0) {
+                                $qb->setParameters($params);
+                            }
+                        });
+                        QueryUtil::walkFilters($qbTotal, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qbTotal) {
+                            if(count($exprs) > 0) {
+                                $qbTotal->where($qbTotal->expr()->andX(...$exprs));
+                            }
+                            if(count($params) > 0) {
+                                $qbTotal->setParameters($params);
+                            }
+                        });
                     }
                     if(isset($args['match'])) {
-                        $match = $args['match'];
-                        $matchExprs = [];
-                        foreach($args['match'] as $fieldName=>$predicates) {
-                            foreach($predicates as $predicate) {
-                                $expr = $qb->expr();
-                                $paramName = ":$fieldName";
-                                $parameters['match'][$fieldName] = $predicate['value'];
-                                switch($predicate['operator']) {
-                                case BuiltInTypes::FILTER_OP_LESS_THAN:
-                                    $matchExprs[] = $expr->lt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
-                                    $matchExprs[] = $expr->lte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_EQUAL:
-                                    $matchExprs[] = $expr->eq("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN:
-                                    $matchExprs[] = $expr->gt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
-                                    $matchExprs[] = $expr->gte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_NOT_EQUAL:
-                                    $matchExprs[] = $expr->neq("e.".$fieldName, $paramName);
-                                    break;
-                                }
+                        QueryUtil::walkFilters($qb, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qb) {
+                            if(count($exprs) > 0) {
+                                $qb->andWhere($qb->expr()->orX(...$exprs));
                             }
-                        }
-                        $qb->andWhere($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
-                        $qbTotal->where($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
+                            if(count($params) > 0) {
+                                $qb->setParameters($params);
+                            }
+                        });
+                        QueryUtil::walkFilters($qbTotal, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qbTotal) {
+                            if(count($exprs) > 0) {
+                                $qbTotal->andWhere($qbTotal->expr()->orX(...$exprs));
+                            }
+                            if(count($params) > 0) {
+                                $qbTotal->setParameters($params);
+                            }
+                        });
                     }
                     if(isset($args['sort'])) {
                         foreach($args['sort'] as $fieldName=>$direction) {
