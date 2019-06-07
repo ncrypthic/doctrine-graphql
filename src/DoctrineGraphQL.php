@@ -14,9 +14,13 @@ use GraphQL\Type\Definition\Type;
 use LLA\DoctrineGraphQL\Type\BuiltInTypes;
 use LLA\DoctrineGraphQL\Util\Maybe;
 use LLA\DoctrineGraphQL\Util\SchemaUtil;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 
 class DoctrineGraphQL
 {
+    use LoggerAwareTrait;
+
     /**
      * @var array
      */
@@ -38,20 +42,21 @@ class DoctrineGraphQL
      */
     private $mutations;
 
-    public function __construct()
+    public function __construct(LoggerInterface $logger)
     {
         $this->types = [];
         $this->inputTypes = [];
         $this->outputTypes = [];
         $this->queries = [];
         $this->mutations = [];
+        $this->logger = $logger;
     }
     /**
      * Add output object type
      *
      * @param string $name Output object type name
      * @param array $config Ouput object type configuration
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function addOutputType(string $name, array $config): DoctrineGraphQL
     {
@@ -64,7 +69,7 @@ class DoctrineGraphQL
      * Get output type named $name
      *
      * @param string $name
-     * @return LLA\DoctrineGraphQL\Util\Maybe
+     * @return \LLA\DoctrineGraphQL\Util\Maybe
      */
     public function getOutputType(string $name): Maybe
     {
@@ -79,7 +84,7 @@ class DoctrineGraphQL
      * Get type named $name
      *
      * @param string $name
-     * @return LLA\DoctrineGraphQL\Util\Maybe
+     * @return \LLA\DoctrineGraphQL\Util\Maybe
      */
     public function getType(string $name): Maybe
     {
@@ -104,7 +109,7 @@ class DoctrineGraphQL
      *
      * @param string $name Input object type name
      * @param array $config Input object type configuration
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function addInputType(string $name, array $config): DoctrineGraphQL
     {
@@ -132,11 +137,11 @@ class DoctrineGraphQL
      * Add a GraphQL query
      *
      * @param string $name Query name
-     * @param GraphQL\Type\Definition\Type $type Return type ;
+     * @param \GraphQL\Type\Definition\Type $type Return type ;
      * @param array $args Query arguments
      * @param callable $nesolver Resolver function
      * @param string|null $desc Query description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function addQuery(string $name, Type $type, array $args, callable $resolver, $desc = null): DoctrineGraphQL
     {
@@ -151,11 +156,11 @@ class DoctrineGraphQL
     }
     /**
      * @param string $name Query name
-     * @param GraphQL\Type\Definition\Type $type Return type ;
+     * @param \GraphQL\Type\Definition\Type $type Return type ;
      * @param array $args Query arguments
      * @param callable $fieldResolver Resolver function
      * @param string|null $desc Query description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function addQueryWithFieldResolver(string $name, Type $type, array $args, callable $fieldResolver, $desc = null): DoctrineGraphQL
     {
@@ -170,11 +175,11 @@ class DoctrineGraphQL
     }
     /**
      * @param string $name Mutation name
-     * @param GraphQL\Type\Definition\Type $type Return tyoe
+     * @param \GraphQL\Type\Definition\Type $type Return tyoe
      * @param array $args Arguments
      * @param callable $resolver Resolver function
      * @param string|null $desc Mutation description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function addMutation(string $name, Type $type, array $args, callable $resolver, $desc = null): DoctrineGraphQL
     {
@@ -190,8 +195,8 @@ class DoctrineGraphQL
     /**
      * Register doctrine entities as graphql types
      *
-     * @param Doctrine\ORM\EntityManager $em Doctrine ORM entity manager
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em Doctrine ORM entity manager
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     private function registerObjects(EntityManager $em): DoctrineGraphQL
     {
@@ -256,11 +261,13 @@ class DoctrineGraphQL
      * Register doctrine entities relationships fields as graphql
      * resolvable fields
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     private function registerRelationships(EntityManager $em): DoctrineGraphQL
     {
+        $this->logger->debug('Registering Relationships');
+
         $cmf = $em->getMetadataFactory();
         $modifiedTypes = [];
         foreach($cmf->getAllMetadata() as $cm) {
@@ -276,7 +283,7 @@ class DoctrineGraphQL
                 $typeName   = SchemaUtil::mkObjectName($fieldDef['targetEntity']);
                 $isNullable = true;
                 if(!$fieldDef['isOwningSide']) {
-                    /* @var Doctrine\Orm\Mapping\ClassMetadata $owningSide */
+                    /* @var \Doctrine\Orm\Mapping\ClassMetadata $owningSide */
                     $owningSide = $cmf->getMetadataFor($fieldDef['targetEntity']);
                     $joinColumns = $owningSide->getAssociationMapping($fieldDef['mappedBy'])['joinColumns'];
                 } else {
@@ -305,6 +312,9 @@ class DoctrineGraphQL
             }
             $this->outputTypes[$name] = $modifiedTypes[$name] = new ObjectType(['name' => $name, 'fields' => $fields]);
         }
+
+        $this->logger->debug('Registering Modified Types');
+
         foreach($modifiedTypes as $typeName => $type) {
             foreach($this->outputTypes as $existingName=>&$existingType) {
                 foreach($existingType->config['fields'] as &$existingTypeFieldDef) {
@@ -321,273 +331,296 @@ class DoctrineGraphQL
             $this->outputTypes[$typeName] = $type;
         }
 
+        $this->logger->debug('Registering Finished');
         return $this;
     }
     /**
      * Compile types
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function buildTypes(EntityManager $em): DoctrineGraphQL
     {
-        $this->registerObjects($em)->registerRelationships($em);
-        $this->types = $this->outputTypes + $this->inputTypes;
+        try {
+            $this->registerObjects($em)->registerRelationships($em);
+            $this->types = $this->outputTypes + $this->inputTypes;
+        } catch (\Exception $e) {
+            $this->logger->error('Exception building types!', array('exception'=>$e));
+            throw $e;
+        }
 
         return $this;
     }
     /**
      * Create built-in mutations
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function buildMutations(EntityManager $em): DoctrineGraphQL
     {
-        $cmf = $em->getMetadataFactory();
-        foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
-            $type = $this->getType($name);
-            if($type->isEmpty()) {
-                continue;
-            }
-            $inputType = $this->getInputType($name."Input");
-            if($inputType->isEmpty()) {
-                continue;
-            }
-            $this->addMutation(
-                "create".$name,
-                $type->value(),
-                ['input' => $inputType->value()],
-                function($val, $args) use($cm, $em){
-                    $reflect = new \ReflectionClass($cm->name);
-                    $entity = $reflect->newInstance();
-                    foreach($args['input'] as $field=>$value) {
-                        call_user_func([$entity, 'set'.ucfirst($field)], $value);
-                    }
-                    $em->persist($entity);
-                    $em->flush();
-                    return $entity;
-                },
-                "Creates new $name"
-            );
-            $this->addMutation(
-                "update".$name,
-                $type->value(),
-                ['input' => $inputType->value()],
-                function($val, $args) use($cm, $em){
-                    $input = $args['input'];
-                    $identifiers = $cm->getIdentifierFieldNames();
-                    $idFields = [];
-                    $values = [];
-                    foreach($input as $field=>$value) {
-                        if(in_array($field, $identifiers)) {
-                            $idFields[$field] = $value;
-                        } else {
-                            $values[$field] = $value;
-                        }
-                    }
-                    $repository = $em->getRepository($cm->name);
-                    $entity = $repository->findOneBy($idFields);
-                    if(empty($entity)) {
-                        throw new \Error('Cannot find data with '.json_encode($idFields, false));
-                    }
-                    foreach($values as $field=>$value) {
-                        call_user_func([$entity, 'set'.ucfirst($field)], $value);
-                    }
-                    $em->persist($entity);
-                    $em->flush();
-                    return $entity;
-                },
-                "Updates $name"
-            );
-            $idArgs = [];
-            foreach($cm->getIdentifierFieldNames() as $idField) {
-                if($cm->hasAssociation($idField)) {
-                    $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
-                    $maybeInputType = $this->getInputType($targetName);
-                    if($maybeInputType->isEmpty()) {
-                        continue;
-                    }
-                    $idArgs[$idField] = $maybeInputType->value();
-                } else {
-                    $idArgs[$idField] = SchemaUtil::mapTypeToGraphqlType($cm->getTypeOfField($idField), false, false)->value();
+        try {
+            $cmf = $em->getMetadataFactory();
+            foreach ($cmf->getAllMetadata() as $cm) {
+                $name = SchemaUtil::mkObjectName($cm->name);
+                $type = $this->getType($name);
+                if ($type->isEmpty()) {
+                    continue;
                 }
-            }
-            $this->addMutation(
-                "delete".$name,
-                $type->value(),
-                $idArgs,
-                function($val, $args) use($em, $cm) {
-                    $reflect = new \ReflectionClass($cm->name);
-                    $entity = $repository->findOneBy($val);
-                    if(!empty($entity)) {
-                        $em->remove($entity);
+                $inputType = $this->getInputType($name . "Input");
+                if ($inputType->isEmpty()) {
+                    continue;
+                }
+                $this->addMutation(
+                    "create" . $name,
+                    $type->value(),
+                    ['input' => $inputType->value()],
+                    function ($val, $args) use ($cm, $em) {
+                        $reflect = new \ReflectionClass($cm->name);
+                        $entity = $reflect->newInstance();
+                        foreach ($args['input'] as $field => $value) {
+                            call_user_func([$entity, 'set' . ucfirst($field)], $value);
+                        }
+                        $em->persist($entity);
                         $em->flush();
+                        return $entity;
+                    },
+                    "Creates new $name"
+                );
+                $this->addMutation(
+                    "update" . $name,
+                    $type->value(),
+                    ['input' => $inputType->value()],
+                    function ($val, $args) use ($cm, $em) {
+                        $input = $args['input'];
+                        $identifiers = $cm->getIdentifierFieldNames();
+                        $idFields = [];
+                        $values = [];
+                        foreach ($input as $field => $value) {
+                            if (in_array($field, $identifiers)) {
+                                $idFields[$field] = $value;
+                            } else {
+                                $values[$field] = $value;
+                            }
+                        }
+                        $repository = $em->getRepository($cm->name);
+                        $entity = $repository->findOneBy($idFields);
+                        if (empty($entity)) {
+                            throw new \Error('Cannot find data with ' . json_encode($idFields, false));
+                        }
+                        foreach ($values as $field => $value) {
+                            call_user_func([$entity, 'set' . ucfirst($field)], $value);
+                        }
+                        $em->persist($entity);
+                        $em->flush();
+                        return $entity;
+                    },
+                    "Updates $name"
+                );
+                $idArgs = [];
+                foreach ($cm->getIdentifierFieldNames() as $idField) {
+                    if ($cm->hasAssociation($idField)) {
+                        $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
+                        $maybeInputType = $this->getInputType($targetName);
+                        if ($maybeInputType->isEmpty()) {
+                            continue;
+                        }
+                        $idArgs[$idField] = $maybeInputType->value();
+                    } else {
+                        $idArgs[$idField] = SchemaUtil::mapTypeToGraphqlType($cm->getTypeOfField($idField), false, false)->value();
                     }
-                },
-                "Delete a $name"
-            );
+                }
+                $this->addMutation(
+                    "delete" . $name,
+                    $type->value(),
+                    $idArgs,
+                    function ($val, $args) use ($em, $cm) {
+                        $reflect = new \ReflectionClass($cm->name);
+                        //FIXME: Variable $repository has not been defined
+                        $entity = $repository->findOneBy($val);
+                        if (!empty($entity)) {
+                            $em->remove($entity);
+                            $em->flush();
+                        }
+                    },
+                    "Delete a $name"
+                );
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Exception building mutations!', array('exception'=>$e));
+            throw $e;
         }
         return $this;
     }
     /**
      * Create built-in query
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
     public function buildQueries(EntityManager $em): DoctrineGraphQL
     {
-        $cmf = $em->getMetadataFactory();
-        foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
-            $type = $this->getType($name);
-            if($type->isEmpty()) {
-                continue;
-            }
-            $idArgs = [];
-            foreach($cm->getIdentifierFieldNames() as $idField) {
-                if($cm->hasAssociation($idField)) {
-                    $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
-                    $idArgs[$idField] = $this->getInputType($targetName."Input")->value();
-                } else {
-                    $idArgs[$idField] = SchemaUtil::mapTypeToGraphqlType($cm->getTypeOfField($idField), false, false)->value();
+        try {
+            $cmf = $em->getMetadataFactory();
+            foreach ($cmf->getAllMetadata() as $cm) {
+                $name = SchemaUtil::mkObjectName($cm->name);
+                $type = $this->getType($name);
+                if ($type->isEmpty()) {
+                    continue;
                 }
-            }
-            $this->addQuery(
-                "get".$name,
-                $this->getType($name)->value(),
-                $idArgs,
-                function($rootValue, $args) use($em, $cm){
-                    /* @var \Doctrine\ORM\EntityRepository $repository */
-                    $repository = $em->getRepository($cm->name);
-                    return $repository->findOneBy($args);
-                },
-                "Get single $name"
-            );
-            $pageArgs = [
-                'page'   => Type::int(),
-                'limit'  => Type::int(),
-                'match'  => $this->getInputType($name."SearchInput")->value(),
-                'filter' => $this->getInputType($name."SearchInput")->value(),
-                'sort'   => $this->getInputType($name."SortInput")->value(),
-            ];
-            $this->addQuery(
-                "get".$name."Page",
-                $this->getType($name."Page")->value(),
-                $pageArgs,
-                function($rootValue, $args, $ctx, ResolveInfo $resolveInfo) use($em, $cm){
-                    $selectedFields = $resolveInfo->getFieldSelection();
-                    $total  = 0;
-                    $filter = [];
-                    $match  = [];
-                    $sort   = [];
-                    /* @var \Doctrine\ORM\EntityRepository $repo */
-                    /* @var \Doctrine\ORM\QueryBuilder $qb */
-                    $repo    = $em->getRepository($cm->name);
-                    $qb      = $em->createQueryBuilder()->select('e')->from($cm->name, 'e');
-                    $qbTotal = $em->createQueryBuilder()->select('count(e) total')->from($cm->name, 'e');
-                    $criteria = array_filter($args, function($key) {
-                        return !in_array($key, ['page', 'limit', 'match', 'filter']);
-                    }, ARRAY_FILTER_USE_KEY);
-                    $parameters = ['filter' => [], 'match' => []];
-                    if(isset($args['filter'])) {
-                        $filter = $args['filter'];
-                        $filterExprs = [];
-                        foreach($args['filter'] as $fieldName=>$predicates) {
-                            foreach($predicates as $predicate) {
-                                $expr = $qb->expr();
-                                $paramName = ":$fieldName";
-                                $parameters['filter'][$fieldName] = $predicate['value'];
-                                switch($predicate['operator']) {
-                                case BuiltInTypes::FILTER_OP_LESS_THAN:
-                                    $filterExprs[] = $expr->lt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
-                                    $filterExprs[] = $expr->lte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_EQUAL:
-                                    $filterExprs[] = $expr->eq("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN:
-                                    $filterExprs[] = $expr->gt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
-                                    $filterExprs[] = $expr->gte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_NOT_EQUAL:
-                                    $filterExprs[] = $expr->neq("e.".$fieldName, $paramName);
-                                    break;
+                $idArgs = [];
+                foreach ($cm->getIdentifierFieldNames() as $idField) {
+                    if ($cm->hasAssociation($idField)) {
+                        $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
+                        $idArgs[$idField] = $this->getInputType($targetName . "Input")->value();
+                    } else {
+                        $idArgs[$idField] = SchemaUtil::mapTypeToGraphqlType($cm->getTypeOfField($idField), false, false)->value();
+                    }
+                }
+                $this->addQuery(
+                    "get" . $name,
+                    $this->getType($name)->value(),
+                    $idArgs,
+                    function ($rootValue, $args) use ($em, $cm) {
+                        /* @var \Doctrine\ORM\EntityRepository $repository */
+                        $repository = $em->getRepository($cm->name);
+                        return $repository->findOneBy($args);
+                    },
+                    "Get single $name"
+                );
+                $pageArgs = [
+                    'page' => Type::int(),
+                    'limit' => Type::int(),
+                    'match' => $this->getInputType($name . "SearchInput")->value(),
+                    'filter' => $this->getInputType($name . "SearchInput")->value(),
+                    'sort' => $this->getInputType($name . "SortInput")->value(),
+                ];
+                $logger = $this->logger;
+                $this->addQuery(
+                    "get" . $name . "Page",
+                    $this->getType($name . "Page")->value(),
+                    $pageArgs,
+                    function ($rootValue, $args, $ctx, ResolveInfo $resolveInfo) use ($em, $cm, $logger) {
+                        $selectedFields = $resolveInfo->getFieldSelection();
+                        $total = 0;
+                        $filter = [];
+                        $match = [];
+                        $sort = [];
+                        /* @var \Doctrine\ORM\EntityRepository $repo */
+                        /* @var \Doctrine\ORM\QueryBuilder $qb */
+                        $repo = $em->getRepository($cm->name);
+                        $qb = $em->createQueryBuilder()->select('e')->from($cm->name, 'e');
+                        $qbTotal = $em->createQueryBuilder()->select('count(e) total')->from($cm->name, 'e');
+                        $criteria = array_filter($args, function ($key) {
+                            return !in_array($key, ['page', 'limit', 'match', 'filter']);
+                        }, ARRAY_FILTER_USE_KEY);
+                        $parameters = ['filter' => [], 'match' => []];
+                        if (isset($args['filter'])) {
+                            $filter = $args['filter'];
+                            $filterExprs = [];
+                            foreach ($args['filter'] as $fieldName => $predicates) {
+                                foreach ($predicates as $predicate) {
+                                    $expr = $qb->expr();
+                                    $paramName = ":$fieldName";
+                                    $parameters['filter'][$fieldName] = $predicate['value'];
+                                    switch ($predicate['operator']) {
+                                        case BuiltInTypes::FILTER_OP_LESS_THAN:
+                                            $filterExprs[] = $expr->lt("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
+                                            $filterExprs[] = $expr->lte("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_EQUAL:
+                                            $filterExprs[] = $expr->eq("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_GREATER_THAN:
+                                            $filterExprs[] = $expr->gt("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
+                                            $filterExprs[] = $expr->gte("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_NOT_EQUAL:
+                                            $filterExprs[] = $expr->neq("e." . $fieldName, $paramName);
+                                            break;
+                                    }
                                 }
                             }
+                            $qb->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
+                            $qbTotal->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
                         }
-                        $qb->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
-                        $qbTotal->where($qb->expr()->andX(...$filterExprs))->setParameters($parameters['filter']);
-                    }
-                    if(isset($args['match'])) {
-                        $match = $args['match'];
-                        $matchExprs = [];
-                        foreach($args['match'] as $fieldName=>$predicates) {
-                            foreach($predicates as $predicate) {
-                                $expr = $qb->expr();
-                                $paramName = ":$fieldName";
-                                $parameters['match'][$fieldName] = $predicate['value'];
-                                switch($predicate['operator']) {
-                                case BuiltInTypes::FILTER_OP_LESS_THAN:
-                                    $matchExprs[] = $expr->lt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
-                                    $matchExprs[] = $expr->lte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_EQUAL:
-                                    $matchExprs[] = $expr->eq("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN:
-                                    $matchExprs[] = $expr->gt("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
-                                    $matchExprs[] = $expr->gte("e.".$fieldName, $paramName);
-                                    break;
-                                case BuiltInTypes::FILTER_OP_NOT_EQUAL:
-                                    $matchExprs[] = $expr->neq("e.".$fieldName, $paramName);
-                                    break;
+                        if (isset($args['match'])) {
+                            $match = $args['match'];
+                            $matchExprs = [];
+                            foreach ($args['match'] as $fieldName => $predicates) {
+                                foreach ($predicates as $predicate) {
+                                    $expr = $qb->expr();
+                                    $paramName = ":$fieldName";
+                                    $parameters['match'][$fieldName] = $predicate['value'];
+                                    switch ($predicate['operator']) {
+                                        case BuiltInTypes::FILTER_OP_LESS_THAN:
+                                            $matchExprs[] = $expr->lt("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
+                                            $matchExprs[] = $expr->lte("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_EQUAL:
+                                            $matchExprs[] = $expr->eq("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_GREATER_THAN:
+                                            $matchExprs[] = $expr->gt("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
+                                            $matchExprs[] = $expr->gte("e." . $fieldName, $paramName);
+                                            break;
+                                        case BuiltInTypes::FILTER_OP_NOT_EQUAL:
+                                            $matchExprs[] = $expr->neq("e." . $fieldName, $paramName);
+                                            break;
+                                    }
                                 }
                             }
+                            $qb->andWhere($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
+                            $qbTotal->where($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
                         }
-                        $qb->andWhere($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
-                        $qbTotal->where($qb->expr()->orX(...$matchExprs))->setParameters($parameters['match']);
-                    }
-                    if(isset($args['sort'])) {
-                        foreach($args['sort'] as $fieldName=>$direction) {
-                            $qb->orderBy("e.".$fieldName, $direction);
+                        if (isset($args['sort'])) {
+                            foreach ($args['sort'] as $fieldName => $direction) {
+                                $qb->orderBy("e." . $fieldName, $direction);
+                            }
                         }
-                    }
-                    $page = $args['page'] > 0 ? $args['page'] - 1: 0;
-                    if(in_array('total', $selectedFields)) {
-                        foreach($parameters['filter'] as $key=>$value) {
-                            $qbTotal->setParameter($key, $value);
+                        $page = $args['page'] > 0 ? $args['page'] - 1 : 0;
+                        if (in_array('total', $selectedFields)) {
+                            foreach ($parameters['filter'] as $key => $value) {
+                                $qbTotal->setParameter($key, $value);
+                            }
+                            foreach ($parameters['match'] as $key => $value) {
+                                $qbTotal->setParameter($key, $value);
+                            }
+                            $qbTotalQuery = $qbTotal->setMaxResults(1)->getQuery();
+                            $logger->info("Total Query: " . $qbTotalQuery->getSQL() . " with parameters (" . implode(',', $qbTotalQuery->getParameters()). ")");
+                            $res = $qbTotalQuery->getArrayResult();
+                            $total = $res[0]['total'];
                         }
-                        foreach($parameters['match'] as $key=>$value) {
-                            $qbTotal->setParameter($key, $value);
-                        }
-                        $res = $qbTotal->setMaxResults(1)->getQuery()->getArrayResult();
-                        $total = $res[0]['total'];
-                    }
-                    return [
-                        'total'  => $total,
-                        'page'   => $args['page'],
-                        'limit'  => $args['limit'],
-                        'filter' => $filter,
-                        'match'  => $match,
-                        'sort'   => $sort,
-                        'items'  => $qb->setMaxResults($args['limit'])->setFirstResult($page * $args['limit'])->getQuery()->getResult()
-                    ];
-                },
-                "Get single $name"
-            );
-        }
 
+                        $qbQuery = $qb->setMaxResults($args['limit'])->setFirstResult($page * $args['limit'])->getQuery();
+                        $logger->info("Query: " . $qbQuery->getSQL() . " with parameters (" . implode(',', $qbQuery->getParameters()). ")");
+
+                        return [
+                            'total' => $total,
+                            'page' => $args['page'],
+                            'limit' => $args['limit'],
+                            'filter' => $filter,
+                            'match' => $match,
+                            'sort' => $sort,
+                            'items' => $qbQuery->getResult()
+                        ];
+                    },
+                    "Get single $name"
+                );
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Exception building queries!', array('exception'=>$e));
+            throw $e;
+        }
         return $this;
     }
     /**
@@ -596,8 +629,8 @@ class DoctrineGraphQL
      */
     public function toGraphqlSchema(): \GraphQL\Type\Schema
     {
-        /* @var GraphQL\Type\Definition\ObjectType[] $types */
-        /* @var GraphQL\Type\Definition\InputObjectType[] $types */
+        /* @var \GraphQL\Type\Definition\ObjectType[] $types */
+        /* @var \GraphQL\Type\Definition\InputObjectType[] $types */
         $query = ['name'=>'Query', 'fields' => []];
         $mutations = ['name'=>'Mutation' ,'fields' => []];
         foreach($this->queries as $name=>$config) {
