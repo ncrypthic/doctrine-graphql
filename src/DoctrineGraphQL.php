@@ -282,10 +282,18 @@ class DoctrineGraphQL
                 if(!$fieldDef['isOwningSide']) {
                     /* @var Doctrine\Orm\Mapping\ClassMetadata $owningSide */
                     $owningSide = $cmf->getMetadataFor($fieldDef['targetEntity']);
-                    $joinColumns = $owningSide->getAssociationMapping($fieldDef['mappedBy'])['joinColumns'];
+
+                    $joinFieldMetadata = $owningSide->getAssociationMapping($fieldDef['mappedBy']);
                 } else {
-                    $joinColumns = $fieldDef['joinColumns'];
+                    $joinFieldMetadata = $fieldDef;
                 }
+
+                if (!array_key_exists('joinColumns', $joinFieldMetadata)) {
+                    $joinColumns = $joinFieldMetadata['joinTable']['joinColumns'];
+                } else {
+                    $joinColumns = $joinFieldMetadata['joinColumns'];
+                }
+
                 foreach($joinColumns as $joinColumn) {
                     if(!$joinColumn['nullable']) {
                         $isNullable = false;
