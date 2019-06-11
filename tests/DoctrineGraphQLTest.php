@@ -11,6 +11,7 @@ use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 use LLA\DoctrineGraphQL\DoctrineGraphQL;
 use LLA\DoctrineGraphQLTest\Entity\User;
+use LLA\DoctrineGraphQL\SimpleEntityTypeNameGenerator;
 use LLA\DoctrineGraphQL\Type\DateTimeType;
 use PHPUnit\Framework\TestCase;
 
@@ -23,14 +24,14 @@ final class DoctrineGraphQLTests extends TestCase
 
     public function setUp(): void
     {
-        $doctrineGraphql = new DoctrineGraphQL();
+        $doctrineGraphql = new DoctrineGraphQL(new SimpleEntityTypeNameGenerator());
         $config = Setup::createAnnotationMetadataConfiguration(array(__DIR__."/Entity"), true, null, null, false);
         $em = EntityManager::create(['driver'=>'pdo_mysql'], $config);
-        /* @var \GraphQL\Type\Schema $graphqlSchema */
         $this->graphqlSchema = $doctrineGraphql
             ->buildTypes($em)
             ->buildQueries($em)
             ->buildMutations($em)
+            ->addQuery("someBusinessProcess", $doctrineGraphql->getType('LLADoctrineGraphQLTestEntityUser')->value(), ['source' => Type::string()], function(){})
             ->toGraphqlSchema();
     }
 
@@ -104,5 +105,14 @@ final class DoctrineGraphQLTests extends TestCase
             $this->graphqlSchema->getMutationType()->getField('updateLLADoctrineGraphQLTestEntityUser')->getArg('input')->getType(),
             $this->graphqlSchema->getType('LLADoctrineGraphQLTestEntityUserInput')
         );
+    }
+
+    public function testCustomQueries()
+    {
+
+    }
+    public function testCustomMutations()
+    {
+
     }
 }
