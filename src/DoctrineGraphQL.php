@@ -43,9 +43,9 @@ class DoctrineGraphQL
      */
     private $nameGenerator;
 
-    public function __construct(EntityTypeNameGenerator $nameGenerator)
+    public function __construct(EntityTypeNameGenerator $nameGenerator = null)
     {
-        $this->nameGenerator = $nameGenerator;
+        $this->nameGenerator = $nameGenerator ?: new SimpleEntityTypeNameGenerator();
         $this->types = [];
         $this->inputTypes = [];
         $this->outputTypes = [];
