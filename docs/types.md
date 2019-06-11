@@ -37,6 +37,32 @@ That's pretty neat, but how about associations of Doctrine entities (one-to-many
 
 The only problem is we first need populate all Doctrine entities as GraphQL named ObjectType and then we add the associations fields on every defined ObjectType based of the entity association configuration. DoctrineGraphQL already handle [this](#associations) for you.
 
+## Custom naming strategy
+
+If the default strategy is not suitable, we can always implement our own naming strategy by creating a class that implements `LLA\DoctrineGraphQL\EntityTypeNameGenerator` interface. Then we can pass the naming generator instance to the factory class constructor.
+
+```php
+use LLA\DoctrineGraphQL\EntityTypeNameGenerator;
+
+class MyGraphqlTypeNameGenerator implements EntityTypeNameGenerator
+{
+    /**
+     * {@inheritdoc}
+     */
+    public function generate(string $classname): string
+    {
+        // returns a graphql type name for specified $classname
+    }
+}
+```
+
+```php
+use LLA\DoctrineGraphQL\DoctrineGraphQL;
+
+$nameGenerator = MyGraphqlTypeNameGenerator();
+$factory = new DoctrineGraphQL($nameGenerator);
+```
+
 ## Built in types
 
 [DoctrineGraphQL](https://github.com/ncrypthic/doctrine-graphql) also comes with other [built-in types](https://github.com/ncrypthic/doctrine-graphql/blob/master/src/Type/BuiltInTypes.php).

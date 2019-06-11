@@ -38,9 +38,14 @@ class DoctrineGraphQL
      * @var array
      */
     private $mutations;
+    /**
+     * @var EntityTypeNameGenerator
+     */
+    private $nameGenerator;
 
-    public function __construct()
+    public function __construct(EntityTypeNameGenerator $nameGenerator = null)
     {
+        $this->nameGenerator = $nameGenerator ?: new SimpleEntityTypeNameGenerator();
         $this->types = [];
         $this->inputTypes = [];
         $this->outputTypes = [];
@@ -52,9 +57,9 @@ class DoctrineGraphQL
      *
      * @param string $name Output object type name
      * @param array $config Ouput object type configuration
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function addOutputType(string $name, array $config): DoctrineGraphQL
+    public function addOutputType(string $name, array $config): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $config['name'] = $name;
         $this->outputTypes[$name] = new ObjectType($config);
@@ -65,7 +70,7 @@ class DoctrineGraphQL
      * Get output type named $name
      *
      * @param string $name
-     * @return LLA\DoctrineGraphQL\Util\Maybe
+     * @return Maybe
      */
     public function getOutputType(string $name): Maybe
     {
@@ -80,7 +85,7 @@ class DoctrineGraphQL
      * Get type named $name
      *
      * @param string $name
-     * @return LLA\DoctrineGraphQL\Util\Maybe
+     * @return \LLA\DoctrineGraphQL\Util\Maybe
      */
     public function getType(string $name): Maybe
     {
@@ -105,9 +110,9 @@ class DoctrineGraphQL
      *
      * @param string $name Input object type name
      * @param array $config Input object type configuration
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function addInputType(string $name, array $config): DoctrineGraphQL
+    public function addInputType(string $name, array $config): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $config['name'] = $name;
         $this->inputTypes[$name] = new InputObjectType($config);
@@ -137,9 +142,9 @@ class DoctrineGraphQL
      * @param array $args Query arguments
      * @param callable $nesolver Resolver function
      * @param string|null $desc Query description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function addQuery(string $name, Type $type, array $args, callable $resolver, $desc = null): DoctrineGraphQL
+    public function addQuery(string $name, Type $type, array $args, callable $resolver, $desc = null): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $this->queries[$name] = [
             'type' => $type,
@@ -156,9 +161,9 @@ class DoctrineGraphQL
      * @param array $args Query arguments
      * @param callable $fieldResolver Resolver function
      * @param string|null $desc Query description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function addQueryWithFieldResolver(string $name, Type $type, array $args, callable $fieldResolver, $desc = null): DoctrineGraphQL
+    public function addQueryWithFieldResolver(string $name, Type $type, array $args, callable $fieldResolver, $desc = null): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $this->queries[$name] = [
             'type' => $type,
@@ -175,9 +180,9 @@ class DoctrineGraphQL
      * @param array $args Arguments
      * @param callable $resolver Resolver function
      * @param string|null $desc Mutation description
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function addMutation(string $name, Type $type, array $args, callable $resolver, $desc = null): DoctrineGraphQL
+    public function addMutation(string $name, Type $type, array $args, callable $resolver, $desc = null): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $this->mutations[$name] = [
             'type' => $type,
@@ -191,14 +196,14 @@ class DoctrineGraphQL
     /**
      * Register doctrine entities as graphql types
      *
-     * @param Doctrine\ORM\EntityManager $em Doctrine ORM entity manager
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em Doctrine ORM entity manager
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    private function registerObjects(EntityManager $em): DoctrineGraphQL
+    private function registerObjects(EntityManager $em): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $cmf = $em->getMetadataFactory();
         foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
+            $name = $this->nameGenerator->generate($cm->name);
             $type = ['name' => $name, 'fields' => []];
             $inputType = ['name' => $name."Input" ,'fields' => []];
             $searchType = ['name' => $name."Search", 'fields' => []];
@@ -257,16 +262,16 @@ class DoctrineGraphQL
      * Register doctrine entities relationships fields as graphql
      * resolvable fields
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    private function registerRelationships(EntityManager $em): DoctrineGraphQL
+    private function registerRelationships(EntityManager $em): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $cmf = $em->getMetadataFactory();
         $modifiedTypes = [];
         $modifiedSearchTypes = [];
         foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
+            $name = $this->nameGenerator->generate($cm->name);
             $maybeType = $this->getOutputType($name);
             if($maybeType->isEmpty()) {
                 continue;
@@ -277,7 +282,7 @@ class DoctrineGraphQL
             $searchFields = $searchInputType['fields'];
             foreach($cm->getAssociationMappings() as $fieldDef) {
                 $fieldName  = $fieldDef['fieldName'];
-                $typeName   = SchemaUtil::mkObjectName($fieldDef['targetEntity']);
+                $typeName   = $this->nameGenerator->generate($fieldDef['targetEntity']);
                 $isNullable = true;
                 if(!$fieldDef['isOwningSide']) {
                     /* @var Doctrine\Orm\Mapping\ClassMetadata $owningSide */
@@ -362,10 +367,10 @@ class DoctrineGraphQL
     /**
      * Compile types
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function buildTypes(EntityManager $em): DoctrineGraphQL
+    public function buildTypes(EntityManager $em): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $this->registerObjects($em)->registerRelationships($em);
         $this->types = $this->outputTypes + $this->inputTypes;
@@ -375,14 +380,14 @@ class DoctrineGraphQL
     /**
      * Create built-in mutations
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function buildMutations(EntityManager $em): DoctrineGraphQL
+    public function buildMutations(EntityManager $em): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $cmf = $em->getMetadataFactory();
         foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
+            $name = $this->nameGenerator->generate($cm->name);
             $type = $this->getType($name);
             if($type->isEmpty()) {
                 continue;
@@ -440,7 +445,7 @@ class DoctrineGraphQL
             $idArgs = [];
             foreach($cm->getIdentifierFieldNames() as $idField) {
                 if($cm->hasAssociation($idField)) {
-                    $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
+                    $targetName = $this->nameGenerator->generate($cm->getAssociationTargetClass($idField));
                     $maybeInputType = $this->getInputType($targetName);
                     if($maybeInputType->isEmpty()) {
                         continue;
@@ -465,19 +470,20 @@ class DoctrineGraphQL
                 "Delete a $name"
             );
         }
+
         return $this;
     }
     /**
      * Create built-in query
      *
-     * @param Doctrine\ORM\EntityManager $em
-     * @return LLA\DoctrineGraphQL\DoctrineGraphQL
+     * @param \Doctrine\ORM\EntityManager $em
+     * @return \LLA\DoctrineGraphQL\DoctrineGraphQL
      */
-    public function buildQueries(EntityManager $em): DoctrineGraphQL
+    public function buildQueries(EntityManager $em): \LLA\DoctrineGraphQL\DoctrineGraphQL
     {
         $cmf = $em->getMetadataFactory();
         foreach($cmf->getAllMetadata() as $cm) {
-            $name = SchemaUtil::mkObjectName($cm->name);
+            $name = $this->nameGenerator->generate($cm->name);
             $type = $this->getType($name);
             if($type->isEmpty()) {
                 continue;
@@ -485,7 +491,7 @@ class DoctrineGraphQL
             $idArgs = [];
             foreach($cm->getIdentifierFieldNames() as $idField) {
                 if($cm->hasAssociation($idField)) {
-                    $targetName = SchemaUtil::mkObjectName($cm->getAssociationTargetClass($idField));
+                    $targetName = $this->nameGenerator->generate($cm->getAssociationTargetClass($idField));
                     $idArgs[$idField] = $this->getInputType($targetName."Input")->value();
                 } else {
                     $idArgs[$idField] = SchemaUtil::mapTypeToGraphqlType($cm->getTypeOfField($idField), false, false)->value();

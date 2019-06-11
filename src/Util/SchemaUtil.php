@@ -8,17 +8,6 @@ use LLA\DoctrineGraphQL\Type\BuiltInTypes;
 class SchemaUtil
 {
     /**
-     * Change FQDN $className to graphql object type by stripping '\'
-     * character
-     *
-     * @param string $className
-     * @return string
-     */
-    public static function mkObjectName($className): string
-    {
-        return str_replace('\\', '', $className);
-    }
-    /**
      * Make graphql type
      *
      * @param GraphQL\Type\Definition\Type $type

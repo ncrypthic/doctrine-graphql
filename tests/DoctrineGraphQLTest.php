@@ -11,6 +11,7 @@ use GraphQL\Type\Definition\ObjectType;
 use GraphQL\Type\Definition\Type;
 use LLA\DoctrineGraphQL\DoctrineGraphQL;
 use LLA\DoctrineGraphQLTest\Entity\User;
+use LLA\DoctrineGraphQL\SimpleEntityTypeNameGenerator;
 use LLA\DoctrineGraphQL\Type\DateTimeType;
 use PHPUnit\Framework\TestCase;
 
@@ -20,14 +21,23 @@ final class DoctrineGraphQLTests extends TestCase
      * @var \GraphQL\Type\Schema
      */
     protected $graphqlSchema;
+    /**
+     * @var \GraphQL\Type\Schema
+     */
+    protected $graphqlSchemaWithCustomNameStrategy;
 
     public function setUp(): void
     {
         $doctrineGraphql = new DoctrineGraphQL();
         $config = Setup::createAnnotationMetadataConfiguration(array(__DIR__."/Entity"), true, null, null, false);
         $em = EntityManager::create(['driver'=>'pdo_mysql'], $config);
-        /* @var \GraphQL\Type\Schema $graphqlSchema */
         $this->graphqlSchema = $doctrineGraphql
+            ->buildTypes($em)
+            ->buildQueries($em)
+            ->buildMutations($em)
+            ->toGraphqlSchema();
+        $doctrineGraphqlWithNamingStrategy = new DoctrineGraphQL(new CustomEntityTypeNameGenerator());
+        $this->graphqlSchemaWithCustomNameStrategy = $doctrineGraphqlWithNamingStrategy
             ->buildTypes($em)
             ->buildQueries($em)
             ->buildMutations($em)
@@ -103,6 +113,78 @@ final class DoctrineGraphQLTests extends TestCase
         $this->assertEquals(
             $this->graphqlSchema->getMutationType()->getField('updateLLADoctrineGraphQLTestEntityUser')->getArg('input')->getType(),
             $this->graphqlSchema->getType('LLADoctrineGraphQLTestEntityUserInput')
+        );
+    }
+
+    public function testGraphqlCustomNamingTypes(): void
+    {
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('DateTime') instanceof DateTimeType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('SearchFilter') instanceof ObjectType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('SearchOperator') instanceof EnumType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('SortingOrientation') instanceof EnumType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('EntityUser') instanceof ObjectType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserPage') instanceof ObjectType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType("EntityUserInput") instanceof InputObjectType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserSearchInput') instanceof InputObjectType);
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserSortInput') instanceof InputObjectType);
+        $pageType = $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserPage');
+        $this->assertEquals(
+            $pageType->getField('items')->getType()->getWrappedType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUser')
+        );
+    }
+
+    public function testGraphqlSchemaCustomNamingQueries(): void
+    {
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('Query') instanceof ObjectType);
+        /* @var \GraphQL\Type\Definition\ObjectType $queryType */
+        $queryType = $this->graphqlSchemaWithCustomNameStrategy->getQueryType();
+        $this->assertTrue($queryType->getField('getEntityUser')->getType() instanceof ObjectType);
+        $this->assertEquals(
+            $queryType->getField('getEntityUser')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUser')
+        );
+        $this->assertTrue($queryType->getField('getEntityUserPage')->getType() instanceof ObjectType);
+        $this->assertEquals(
+            $queryType->getField('getEntityUserPage')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserPage')
+        );
+        $this->assertEquals(
+            $queryType->getField('getEntityUserPage')->getArg('page')->getType(),
+            Type::int()
+        );
+        $this->assertEquals(
+            $queryType->getField('getEntityUserPage')->getArg('limit')->getType(),
+            Type::int()
+        );
+        $this->assertEquals(
+            $queryType->getField('getEntityUserPage')->getArg('match')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserSearchInput')
+        );
+        $this->assertEquals(
+            $queryType->getField('getEntityUserPage')->getArg('filter')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserSearchInput')
+        );
+    }
+
+    public function testGraphqlSchemaCustomNamingMutations(): void
+    {
+        $this->assertTrue($this->graphqlSchemaWithCustomNameStrategy->getType('Mutation') instanceof ObjectType);
+        $this->assertEquals(
+            $this->graphqlSchemaWithCustomNameStrategy->getMutationType()->getField('createEntityUser')->getArg('input')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserInput')
+        );
+        $this->assertEquals(
+            $this->graphqlSchemaWithCustomNameStrategy->getMutationType()->getField('createEntityUser')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUser')
+        );
+        $this->assertEquals(
+            $this->graphqlSchemaWithCustomNameStrategy->getMutationType()->getField('updateEntityUser')->getArg('input')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserInput')
+        );
+        $this->assertEquals(
+            $this->graphqlSchemaWithCustomNameStrategy->getMutationType()->getField('updateEntityUser')->getArg('input')->getType(),
+            $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserInput')
         );
     }
 }
