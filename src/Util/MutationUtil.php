@@ -48,23 +48,29 @@ class MutationUtil
                                $idValues[$idField] = $child[$idField];
                             }
                         }
-                        $relationship = $repo->findOneBy($idValues);
-                        if(empty($relationship)) {
-                            $relationship = $relationshipMeta->getReflectionClass()->newInstance();
-                        }
+                        $relationship = empty($idValues)
+                            ? $relationshipMeta->getReflectionClass()->newInstance()
+                            : $repo->findOneBy($idValues);
                         $this->mergeDeep($relationship, $val, $child);
                         call_user_func([$relationship, 'add'.ucfirst($field)], $relationship);
                     }
                 } else {
                     $idValues = [];
                     foreach($relationshipIdFields as $idField) {
-                        if(isset($child[$idField])) {
-                           $idValues[$idField] = $child[$idField];
+                        if(isset($value[$idField])) {
+                           $idValues[$idField] = $value[$idField];
                         }
                     }
-                    $relationship = $repo->findOneBy($idValues);
-                    if(empty($relationship)) {
+                    if(empty($idValues)) {
                         $relationship = $relationshipMeta->getReflectionClass()->newInstance();
+                    } else {
+                        $relationship = $repo->findOneBy($idValues);
+                        if(empty($relationship)) {
+                            $relationship = $relationshipMeta->getReflectionClass()->newInstance();
+                            foreach($idValues as $idField=>$idValue) {
+                                call_user_func([$relationship, 'set'.ucfirst($idField)], $idValue);
+                            }
+                        }
                     }
                     $this->mergeDeep($relationship, $val, $value);
                     call_user_func([$entity, 'set'.ucfirst($field)], $relationship);
@@ -74,6 +80,7 @@ class MutationUtil
             }
         }
         $this->em->persist($entity);
+        $this->em->flush();
         return $entity;
     }
     /**
@@ -85,8 +92,15 @@ class MutationUtil
     {
         $reflect = new \ReflectionClass($this->cm->name);
         $entity = $reflect->newInstance();
-        $entity = $this->mergeDeep($entity, $val, $args['input']);
-        $this->em->flush();
+        $conn = $this->em->getConnection();
+        try {
+            $conn->beginTransaction();
+            $entity = $this->mergeDeep($entity, $val, $args['input']);
+            $conn->commit();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
         return $entity;
     }
     /**
@@ -97,7 +111,7 @@ class MutationUtil
     public function editMutation($val, $args)
     {
         $input = $args['input'];
-        $identifiers = $cm->getIdentifierFieldNames();
+        $identifiers = $this->cm->getIdentifierFieldNames();
         $idFields = [];
         $values = [];
         foreach($input as $field=>$value) {
@@ -107,10 +121,17 @@ class MutationUtil
                 $values[$field] = $value;
             }
         }
-        $repository = $this->em->getRepository($this->cm->name);
-        $entity = $repository->findOneBy($idFields);
-        $entity = $this->mergeDeep($entity, $val, $input);
-        $this->em->flush();
+        $conn = $this->em->getConnection();
+        try {
+            $conn->beginTransaction();
+            $repository = $this->em->getRepository($this->cm->name);
+            $entity = $repository->findOneBy($idFields);
+            $entity = $this->mergeDeep($entity, $val, $input);
+            $conn->commit();
+        } catch (\Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
 
         return $entity;
     }
