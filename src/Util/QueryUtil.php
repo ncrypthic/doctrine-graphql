@@ -5,8 +5,8 @@ namespace LLA\DoctrineGraphQL\Util;
 
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Query\Expr;
-use GraphQL\Type\Definition\InputObjectType;
-use LLA\DoctrineGraphQL\Type\BuiltInTypes;
+use LLA\DoctrineGraphQL\Type\Definition\InputTypeDefinition;
+use LLA\DoctrineGraphQL\Type\Registry;
 
 class QueryUtil
 {
@@ -27,22 +27,22 @@ class QueryUtil
             $paramName = ":{$alias}_{$field}";
             $parameters[$paramName] = $filter['value'];
             switch($filter['operator']) {
-                case BuiltInTypes::FILTER_OP_LESS_THAN:
+                case Registry::FILTER_OP_LESS_THAN:
                     $expresions[] = $expr->lt("{$alias}.{$field}", $paramName);
                     break;
-                case BuiltInTypes::FILTER_OP_LESS_THAN_EQUAL:
+                case Registry::FILTER_OP_LESS_THAN_EQUAL:
                     $expresions[] = $expr->lte("{$alias}.{$field}", $paramName);
                     break;
-                case BuiltInTypes::FILTER_OP_EQUAL:
+                case Registry::FILTER_OP_EQUAL:
                     $expresions[] = $expr->eq("{$alias}.{$field}", $paramName);
                     break;
-                case BuiltInTypes::FILTER_OP_GREATER_THAN:
+                case Registry::FILTER_OP_GREATER_THAN:
                     $expresions[] = $expr->gt("{$alias}.{$field}", $paramName);
                     break;
-                case BuiltInTypes::FILTER_OP_GREATER_THAN_EQUAL:
+                case Registry::FILTER_OP_GREATER_THAN_EQUAL:
                     $expresions[] = $expr->gte("{$alias}.{$field}", $paramName);
                     break;
-                case BuiltInTypes::FILTER_OP_NOT_EQUAL:
+                case Registry::FILTER_OP_NOT_EQUAL:
                     $expresions[] = $expr->neq("{$alias}.{$field}", $paramName);
                     break;
             }
@@ -51,23 +51,21 @@ class QueryUtil
     }
     /**
      * @param QueryBuilder $queryBuilder
-     * @param InputObjectType $type
+     * @param InputTypeDefinition $type
      * @param array $filters
      * @param string $alias
      * @param callable $callback
      * @return void
      */
-    public static function walkFilters(QueryBuilder &$queryBuilder, InputObjectType $type, array $filters, string $alias, callable $callback): void
+    public static function walkFilters(QueryBuilder &$queryBuilder, InputTypeDefinition $type, array $filters, string $alias, callable $callback): void
     {
-        if(!isset($type->config['fields'])) return;
-
-        foreach($type->config['fields'] as $fieldName => $fieldConfig) {
+        foreach($type->getFields() as $fieldName => $fieldConfig) {
             if(!isset($filters[$fieldName])) continue;
 
             $filter = $filters[$fieldName];
             $fieldType = $fieldConfig['type'];
             $fieldAlias = "$alias{$fieldName[0]}";
-            if($fieldType instanceof InputObjectType) {
+            if($fieldType instanceof InputTypeDefinition) {
                 $queryBuilder->join("$alias.$fieldName", $fieldAlias);
                 self::walkFilters($queryBuilder, $fieldType, $filter, $fieldAlias, $callback);
             } else {

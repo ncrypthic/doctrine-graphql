@@ -338,38 +338,46 @@ class DoctrineGraphQL
                     }, ARRAY_FILTER_USE_KEY);
                     $parameters = ['filter' => [], 'match' => []];
                     if(isset($args['filter'])) {
-                        QueryUtil::walkFilters($qb, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qb) {
+                        QueryUtil::walkFilters($qb, $pageArgs['filter']['type'], $args['filter'], 'e', function($exprs, $params) use($qb) {
                             if(count($exprs) > 0) {
-                                $qb->where($qb->expr()->andX(...$exprs));
+                                $qb->andWhere($qb->expr()->andX(...$exprs));
                             }
                             if(count($params) > 0) {
-                                $qb->setParameters($params);
+                                foreach($params as $field=>$value) {
+                                    $qb->setParameter($field, $value);
+                                }
                             }
                         });
-                        QueryUtil::walkFilters($qbTotal, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qbTotal) {
+                        QueryUtil::walkFilters($qbTotal, $pageArgs['filter']['type'], $args['filter'], 'e', function($exprs, $params) use($qbTotal) {
                             if(count($exprs) > 0) {
-                                $qbTotal->where($qbTotal->expr()->andX(...$exprs));
+                                $qbTotal->andWhere($qbTotal->expr()->andX(...$exprs));
                             }
                             if(count($params) > 0) {
-                                $qbTotal->setParameters($params);
+                                foreach($params as $field=>$value) {
+                                    $qbTotal->setParameter($field, $value);
+                                }
                             }
                         });
                     }
                     if(isset($args['match'])) {
-                        QueryUtil::walkFilters($qb, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qb) {
+                        QueryUtil::walkFilters($qb, $pageArgs['match']['type'], $args['match'], 'e', function($exprs, $params) use($qb) {
                             if(count($exprs) > 0) {
-                                $qb->andWhere($qb->expr()->orX(...$exprs));
+                                $qb->orWhere($qb->expr()->orX(...$exprs));
                             }
                             if(count($params) > 0) {
-                                $qb->setParameters($params);
+                                foreach($params as $field=>$value) {
+                                    $qb->setParameter($field, $value);
+                                }
                             }
                         });
-                        QueryUtil::walkFilters($qbTotal, $pageArgs['filter'], $args['filter'], 'e', function($exprs, $params) use($qbTotal) {
+                        QueryUtil::walkFilters($qbTotal, $pageArgs['match']['type'], $args['match'], 'e', function($exprs, $params) use($qbTotal) {
                             if(count($exprs) > 0) {
-                                $qbTotal->andWhere($qbTotal->expr()->orX(...$exprs));
+                                $qbTotal->orWhere($qbTotal->expr()->orX(...$exprs));
                             }
                             if(count($params) > 0) {
-                                $qbTotal->setParameters($params);
+                                foreach($params as $field=>$value) {
+                                    $qbTotal->setParameter($field, $value);
+                                }
                             }
                         });
                     }
