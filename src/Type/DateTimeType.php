@@ -8,6 +8,7 @@ use GraphQL\Language\AST\StringValueNode;
 class DateTimeType extends ScalarType
 {
     public $name = 'DateTime';
+
     /**
      * Serialize $value to ISO8601 date string
      *

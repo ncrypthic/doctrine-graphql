@@ -46,7 +46,8 @@ class Maybe
      * @param mixed $val
      * @return Maybe
      */
-    public static function Option($val) {
+    public static function Option($val)
+    {
         return new Maybe($val);
     }
     /**
@@ -55,7 +56,8 @@ class Maybe
      * @param mixed $val
      * @return Maybe
      */
-    public static function Some($val) {
+    public static function Some($val)
+    {
         return new Maybe($val);
     }
     /**
@@ -63,7 +65,9 @@ class Maybe
      *
      * @return Maybe
      */
-    public static function None() {
-        return new Maybe(null);
+    public static function None()
+    {
+        $null = null;
+        return new Maybe($null);
     }
 }
