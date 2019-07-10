@@ -13,6 +13,7 @@ use LLA\DoctrineGraphQL\DoctrineGraphQL;
 use LLA\DoctrineGraphQLTest\Entity\User;
 use LLA\DoctrineGraphQL\SimpleEntityTypeNameGenerator;
 use LLA\DoctrineGraphQL\Type\DateTimeType;
+use LLA\DoctrineGraphQL\Type\Registry;
 use PHPUnit\Framework\TestCase;
 
 final class DoctrineGraphQLTests extends TestCase
@@ -22,21 +23,26 @@ final class DoctrineGraphQLTests extends TestCase
      */
     protected $graphqlSchema;
     /**
+     * @var \LLA\DoctrineGraphQL\Type\Registry
+     */
+    protected $registry;
+    /**
      * @var \GraphQL\Type\Schema
      */
     protected $graphqlSchemaWithCustomNameStrategy;
 
     public function setUp(): void
     {
-        $doctrineGraphql = new DoctrineGraphQL();
+        $registry = new Registry();
         $config = Setup::createAnnotationMetadataConfiguration(array(__DIR__."/Entity"), true, null, null, false);
         $em = EntityManager::create(['driver'=>'pdo_mysql'], $config);
+        $doctrineGraphql = new DoctrineGraphQL($registry, $em);
         $this->graphqlSchema = $doctrineGraphql
             ->buildTypes($em)
             ->buildQueries($em)
             ->buildMutations($em)
             ->toGraphqlSchema();
-        $doctrineGraphqlWithNamingStrategy = new DoctrineGraphQL(new CustomEntityTypeNameGenerator());
+        $doctrineGraphqlWithNamingStrategy = new DoctrineGraphQL($registry, $em, new CustomEntityTypeNameGenerator());
         $this->graphqlSchemaWithCustomNameStrategy = $doctrineGraphqlWithNamingStrategy
             ->buildTypes($em)
             ->buildQueries($em)
@@ -79,11 +85,11 @@ final class DoctrineGraphQLTests extends TestCase
         );
         $this->assertEquals(
             $queryType->getField('getLLADoctrineGraphQLTestEntityUserPage')->getArg('page')->getType(),
-            Type::int()
+            Type::nonNull(Type::int())
         );
         $this->assertEquals(
             $queryType->getField('getLLADoctrineGraphQLTestEntityUserPage')->getArg('limit')->getType(),
-            Type::int()
+            Type::nonNull(Type::int())
         );
         $this->assertEquals(
             $queryType->getField('getLLADoctrineGraphQLTestEntityUserPage')->getArg('match')->getType(),
@@ -151,11 +157,11 @@ final class DoctrineGraphQLTests extends TestCase
         );
         $this->assertEquals(
             $queryType->getField('getEntityUserPage')->getArg('page')->getType(),
-            Type::int()
+            Type::nonNull(Type::int())
         );
         $this->assertEquals(
             $queryType->getField('getEntityUserPage')->getArg('limit')->getType(),
-            Type::int()
+            Type::nonNull(Type::int())
         );
         $this->assertEquals(
             $queryType->getField('getEntityUserPage')->getArg('match')->getType(),
