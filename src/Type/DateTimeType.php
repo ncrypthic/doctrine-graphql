@@ -17,14 +17,14 @@ class DateTimeType extends ScalarType
      */
     public function serialize($value)
     {
-        return $value->format(\DateTime::ISO8601);
+        return $value->format(\DateTime::RFC3339);
     }
     /**
      * {@inheritdoc}
      */
     public function parseValue($value)
     {
-        return \DateTime::createFromFormat(\DateTime::ISO8601, $value);
+        return new \DateTime($value);
     }
     /**
      * {@inheritdoc}

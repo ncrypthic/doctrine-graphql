@@ -13,6 +13,10 @@ use LLA\DoctrineGraphQL\DoctrineGraphQL;
 use LLA\DoctrineGraphQLTest\Entity\User;
 use LLA\DoctrineGraphQL\SimpleEntityTypeNameGenerator;
 use LLA\DoctrineGraphQL\Type\DateTimeType;
+use LLA\DoctrineGraphQL\Type\Definition\MutationTypeDefinition;
+use LLA\DoctrineGraphQL\Type\Definition\ObjectTypeDefinition;
+use LLA\DoctrineGraphQL\Type\Definition\QueryDefinition;
+use LLA\DoctrineGraphQL\Type\Definition\QueryTypeDefinition;
 use LLA\DoctrineGraphQL\Type\Registry;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +34,10 @@ final class DoctrineGraphQLTests extends TestCase
      * @var \GraphQL\Type\Schema
      */
     protected $graphqlSchemaWithCustomNameStrategy;
+    /**
+     * @var \GraphQL\Type\Schema
+     */
+    protected $graphqlSchemaWithCustomType;
 
     public function setUp(): void
     {
@@ -48,6 +56,16 @@ final class DoctrineGraphQLTests extends TestCase
             ->buildQueries($em)
             ->buildMutations($em)
             ->toGraphqlSchema();
+        $customTypeRegistry = new Registry();
+        $doctrineCustomTypeGraphql = new DoctrineGraphQL($customTypeRegistry, $em);
+        $doctrineCustomTypeGraphql
+            ->buildTypes($em)
+            ->buildQueries($em)
+            ->buildMutations($em);
+        $customTypeRegistry->addType(new ObjectTypeDefinition('XXXType', '', ['name' => ['type' => $registry->getType('LLADoctrineGraphQLTestEntityUser')->value()]]));
+        $customTypeRegistry->addQuery(new QueryTypeDefinition('getXXXType', $registry->getType('LLADoctrineGraphQLTestEntityUser')->value(), ['name' => ['type' => $registry->getType('String!')->value()]], function(){}));
+        $customTypeRegistry->addMutation(new MutationTypeDefinition('doXXXType', $registry->getType('LLADoctrineGraphQLTestEntityUser')->value(), ['name' => ['type' => $registry->getType('String!')->value()]], function(){}));
+        $this->graphqlSchemaWithCustomType = $doctrineCustomTypeGraphql->toGraphqlSchema();
     }
 
     public function testGraphqlTypes(): void
@@ -191,6 +209,27 @@ final class DoctrineGraphQLTests extends TestCase
         $this->assertEquals(
             $this->graphqlSchemaWithCustomNameStrategy->getMutationType()->getField('updateEntityUser')->getArg('input')->getType(),
             $this->graphqlSchemaWithCustomNameStrategy->getType('EntityUserInput')
+        );
+    }
+
+    public function testGraphqlCustomType(): void
+    {
+        $this->assertTrue(
+            $this->graphqlSchemaWithCustomType->hasType('XXXType')
+        );
+    }
+
+    public function testGraphqlCustomQuery(): void
+    {
+        $this->assertFalse(
+            empty($this->graphqlSchemaWithCustomType->getQueryType('getXXXType'))
+        );
+    }
+
+    public function testGraphqlCustomMutation(): void
+    {
+        $this->assertFalse(
+            empty($this->graphqlSchemaWithCustomType->getMutationType('insertLLADoctrineGraphQLTestEntityUser'))
         );
     }
 }

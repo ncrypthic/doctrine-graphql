@@ -142,11 +142,22 @@ class MutationUtil
      */
     public function removeMutation($val, $args)
     {
-        $reflect = new \ReflectionClass($cm->name);
-        $entity = $repository->findOneBy($val);
+        $input = $args;
+        $identifiers = $this->cm->getIdentifierFieldNames();
+        $idFields = [];
+        $values = [];
+        foreach($input as $field=>$value) {
+            if(in_array($field, $identifiers)) {
+                $idFields[$field] = $value;
+            } else {
+                $values[$field] = $value;
+            }
+        }
+        $repository = $this->em->getRepository($this->cm->name);
+        $entity = $repository->findOneBy($idFields);
         if(!empty($entity)) {
-            $em->remove($entity);
-            $em->flush();
+            $this->em->remove($entity);
+            $this->em->flush();
         }
     }
     /**

@@ -155,7 +155,7 @@ class DoctrineGraphQL
                 $joinColumns = $joinFieldMetadata['joinColumns'];
             }
             foreach($joinColumns as $joinColumn) {
-                if(!$joinColumn['nullable']) {
+                if(isset($joinColumn['nullable']) && !$joinColumn['nullable']) {
                     $isNullable = false;
                     break;
                 }
