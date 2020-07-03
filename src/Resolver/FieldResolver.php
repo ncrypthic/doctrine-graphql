@@ -1,17 +1,12 @@
 <?php
 declare(strict_types=1);
+namespace LLA\DoctrineGraphQL\Resolver;
 
-namespace LLA\DoctrineGraphQL\Util;
-
-use Doctrine\Common\Collections\Collection;
 use GraphQL\Type\Definition\ResolveInfo;
 
-/**
- * Resolver utility
- */
-class ResolverUtil
+class FieldResolver
 {
-    public static function fieldResolver($data, $context, $args, ResolveInfo $resolveInfo)
+    public static function resolve($data, $context, $args, ResolveInfo $resolveInfo)
     {
         if($data instanceof Collection) {
             return array_map(function($elmt) use($resolveInfo){

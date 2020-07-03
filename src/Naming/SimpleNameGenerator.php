@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace LLA\DoctrineGraphQL;
+namespace LLA\DoctrineGraphQL\Naming;
 
-class SimpleEntityTypeNameGenerator implements EntityTypeNameGenerator
+class SimpleNameGenerator implements GeneratorInterface
 {
     /**
      * {@inheritDoc}
@@ -12,4 +12,3 @@ class SimpleEntityTypeNameGenerator implements EntityTypeNameGenerator
         return str_replace('\\', '', $class);
     }
 }
-

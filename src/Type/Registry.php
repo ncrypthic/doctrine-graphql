@@ -16,17 +16,10 @@ use LLA\DoctrineGraphQL\Type\Definition\ObjectTypeDefinition;
 use LLA\DoctrineGraphQL\Type\Definition\QueryDefinition;
 use LLA\DoctrineGraphQL\Type\Definition\ScalarTypeDefinition;
 use LLA\DoctrineGraphQL\Type\Definition\TypeDefinition;
-use LLA\DoctrineGraphQL\Type\Definition\WrappedDefinition;
 use LLA\DoctrineGraphQL\Util\Maybe;
 
 class Registry implements RegistryInterface
 {
-    const FILTER_OP_LESS_THAN          = 'LT';
-    const FILTER_OP_LESS_THAN_EQUAL    = 'LTE';
-    const FILTER_OP_EQUAL              = 'EQ';
-    const FILTER_OP_GREATER_THAN_EQUAL = 'GTE';
-    const FILTER_OP_GREATER_THAN       = 'GT';
-    const FILTER_OP_NOT_EQUAL          = 'NEQ';
     /**
      * @var array
      */
@@ -144,9 +137,11 @@ class Registry implements RegistryInterface
             case 'datetime':
                 $actual = 'DateTime';
                 break;
-            case 'dateTimez':
+            case 'datetimez':
                 $actual = 'DateTime';
                 break;
+            default:
+                throw new \Exception("Unknown doctrine type: $name");
         }
         if($actual === null) {
             return Maybe::None();

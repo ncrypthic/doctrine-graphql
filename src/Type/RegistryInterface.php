@@ -11,6 +11,12 @@ use LLA\DoctrineGraphQL\Util\Maybe;
 
 interface RegistryInterface
 {
+    const FILTER_OP_LESS_THAN          = 'LT';
+    const FILTER_OP_LESS_THAN_EQUAL    = 'LTE';
+    const FILTER_OP_EQUAL              = 'EQ';
+    const FILTER_OP_GREATER_THAN_EQUAL = 'GTE';
+    const FILTER_OP_GREATER_THAN       = 'GT';
+    const FILTER_OP_NOT_EQUAL          = 'NEQ';
     /**
      * Register a type configuration
      *

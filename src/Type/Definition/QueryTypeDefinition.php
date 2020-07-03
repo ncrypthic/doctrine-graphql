@@ -80,9 +80,10 @@ class QueryTypeDefinition implements QueryDefinition
     public function buildType(array &$types=[], array &$wrapped=[], array &$visited=[]): array
     {
         $args = [];
-        $type = $types[$this->type->getName()];
         if($this->type instanceof WrappedDefinition) {
             $type = &$wrapped[$this->type->getName()];
+        } else {
+            $type = $types[$this->type->getName()];
         }
         foreach($this->args as $name=>$definition) {
             $typeDef = $definition['type'];

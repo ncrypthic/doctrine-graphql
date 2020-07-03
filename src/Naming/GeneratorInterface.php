@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace LLA\DoctrineGraphQL;
+namespace LLA\DoctrineGraphQL\Naming;
 
-interface EntityTypeNameGenerator
+interface GeneratorInterface
 {
     /**
      * Generate GraphQL type name for a class name
